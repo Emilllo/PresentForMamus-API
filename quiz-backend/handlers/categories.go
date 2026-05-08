@@ -3,7 +3,10 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
+
+	"github.com/jackc/pgx/v5"
 
 	"quiz-backend/db"
 	"quiz-backend/models"
@@ -197,6 +200,22 @@ func SetCategoryRound(w http.ResponseWriter, r *http.Request) {
 
 	if payload.RoundID == nil || *payload.RoundID <= 0 {
 		http.Error(w, "Invalid round_id", http.StatusBadRequest)
+		return
+	}
+
+	var roundID int
+	err := db.DB.QueryRow(
+		context.Background(),
+		`SELECT id FROM round WHERE id = $1`,
+		*payload.RoundID,
+	).Scan(&roundID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			http.Error(w, "Round not found", http.StatusNotFound)
+			return
+		}
+
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
