@@ -33,11 +33,22 @@ func CategoryByIDHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func CategoryRoundHandler(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodPut:
+		SetCategoryRound(w, r)
+	case http.MethodDelete:
+		ClearCategoryRound(w, r)
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
 func GetCategories(w http.ResponseWriter, r *http.Request) {
 	rows, err := db.DB.Query(
 		context.Background(),
 		`
-		SELECT id, name, description
+		SELECT id, name, description, round_id
 		FROM categories
 		ORDER BY name ASC
 	`,
@@ -59,6 +70,7 @@ func GetCategories(w http.ResponseWriter, r *http.Request) {
 			&category.ID,
 			&category.Name,
 			&category.Description,
+			&category.RoundID,
 		)
 
 		if err != nil {
@@ -154,6 +166,76 @@ func DeleteCategory(w http.ResponseWriter, r *http.Request) {
 		context.Background(),
 		`DELETE FROM categories WHERE id = $1`,
 		id,
+	)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if commandTag.RowsAffected() == 0 {
+		http.Error(w, "Category not found", http.StatusNotFound)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func SetCategoryRound(w http.ResponseWriter, r *http.Request) {
+	categoryID, ok := parseID(w, r)
+	if !ok {
+		return
+	}
+
+	var payload struct {
+		RoundID *int `json:"round_id"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if payload.RoundID == nil || *payload.RoundID <= 0 {
+		http.Error(w, "Invalid round_id", http.StatusBadRequest)
+		return
+	}
+
+	commandTag, err := db.DB.Exec(
+		context.Background(),
+		`UPDATE categories SET round_id = $1 WHERE id = $2`,
+		*payload.RoundID,
+		categoryID,
+	)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if commandTag.RowsAffected() == 0 {
+		http.Error(w, "Category not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(struct {
+		ID      int `json:"id"`
+		RoundID int `json:"round_id"`
+	}{
+		ID:      categoryID,
+		RoundID: *payload.RoundID,
+	})
+}
+
+func ClearCategoryRound(w http.ResponseWriter, r *http.Request) {
+	categoryID, ok := parseID(w, r)
+	if !ok {
+		return
+	}
+
+	commandTag, err := db.DB.Exec(
+		context.Background(),
+		`UPDATE categories SET round_id = NULL WHERE id = $1`,
+		categoryID,
 	)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

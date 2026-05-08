@@ -6,5 +6,5 @@ type Questions struct {
 	PointsPerQuestion int     `json:"points_per_question"`
 	ImageURL          *string `json:"image,omitempty"`
 	Answer            *string `json:"answer"`
-	CategoryID        int     `json:"category_id"`
+	CategoryID        *int    `json:"category_id"`
 }

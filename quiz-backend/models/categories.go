@@ -4,4 +4,5 @@ type Categories struct {
 	ID          int     `json:"id"`
 	Name        string  `json:"name"`
 	Description *string `json:"description,omitempty"`
+	RoundID     *int    `json:"round_id,omitempty"`
 }
