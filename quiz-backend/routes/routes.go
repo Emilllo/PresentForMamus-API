@@ -11,6 +11,7 @@ func SetupRoutes() *http.ServeMux {
 
 	router.HandleFunc("/users", handlers.UsersHandler)
 	router.HandleFunc("/categories", handlers.CategoriesHandler)
+	router.HandleFunc("/questions", handlers.QuestionsHandler)
 
 	return router
 }
