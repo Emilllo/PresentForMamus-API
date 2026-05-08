@@ -34,7 +34,7 @@ func CreateGame(w http.ResponseWriter, r *http.Request) {
 	err := db.DB.QueryRow(
 		context.Background(),
 		`
-		INSERT INTO games DEFAULT VALUES
+		INSERT INTO game DEFAULT VALUES
 		RETURNING id
 		`,
 	).Scan(&game.ID)
@@ -58,7 +58,7 @@ func DeleteGame(w http.ResponseWriter, r *http.Request) {
 
 	commandTag, err := db.DB.Exec(
 		context.Background(),
-		`DELETE FROM games WHERE id = $1`,
+		`DELETE FROM game WHERE id = $1`,
 		id,
 	)
 	if err != nil {
