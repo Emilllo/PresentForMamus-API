@@ -22,6 +22,17 @@ func CategoriesHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func CategoryByIDHandler(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodPut:
+		UpdateCategory(w, r)
+	case http.MethodDelete:
+		DeleteCategory(w, r)
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
 func GetCategories(w http.ResponseWriter, r *http.Request) {
 	rows, err := db.DB.Query(
 		context.Background(),
@@ -42,7 +53,7 @@ func GetCategories(w http.ResponseWriter, r *http.Request) {
 	categories := []models.Categories{}
 
 	for rows.Next() {
-		var category models.Categories	
+		var category models.Categories
 
 		err := rows.Scan(
 			&category.ID,
@@ -92,4 +103,67 @@ func CreateCategory(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 
 	json.NewEncoder(w).Encode(category)
+}
+
+func UpdateCategory(w http.ResponseWriter, r *http.Request) {
+	id, ok := parseID(w, r)
+	if !ok {
+		return
+	}
+
+	var category models.Categories
+	if err := json.NewDecoder(r.Body).Decode(&category); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	commandTag, err := db.DB.Exec(
+		context.Background(),
+		`
+		UPDATE categories
+		SET name = $1, description = $2
+		WHERE id = $3
+		`,
+		category.Name,
+		category.Description,
+		id,
+	)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if commandTag.RowsAffected() == 0 {
+		http.Error(w, "Category not found", http.StatusNotFound)
+		return
+	}
+
+	category.ID = id
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(category)
+}
+
+func DeleteCategory(w http.ResponseWriter, r *http.Request) {
+	id, ok := parseID(w, r)
+	if !ok {
+		return
+	}
+
+	commandTag, err := db.DB.Exec(
+		context.Background(),
+		`DELETE FROM categories WHERE id = $1`,
+		id,
+	)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if commandTag.RowsAffected() == 0 {
+		http.Error(w, "Category not found", http.StatusNotFound)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
