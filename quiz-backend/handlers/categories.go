@@ -6,8 +6,8 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"quiz-backend/db"
 	"quiz-backend/models"
