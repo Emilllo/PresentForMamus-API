@@ -44,7 +44,7 @@ func CreateRound(w http.ResponseWriter, r *http.Request) {
     err := db.DB.QueryRow(
         context.Background(),
         `
-        INSERT INTO rounds(game_id) VALUES ($1)
+        INSERT INTO round(game_id) VALUES ($1)
         RETURNING id
         `,
         round.GameId,
@@ -69,7 +69,7 @@ func DeleteRound(w http.ResponseWriter, r *http.Request) {
 
 	commandTag, err := db.DB.Exec(
 		context.Background(),
-		`DELETE FROM rounds WHERE id = $1`,
+		`DELETE FROM round WHERE id = $1`,
 		id,
 	)
 	if err != nil {
