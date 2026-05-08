@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5"
 
 	"quiz-backend/db"
@@ -226,6 +227,12 @@ func SetCategoryRound(w http.ResponseWriter, r *http.Request) {
 		categoryID,
 	)
 	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23503" {
+			http.Error(w, "Round not found", http.StatusNotFound)
+			return
+		}
+
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
