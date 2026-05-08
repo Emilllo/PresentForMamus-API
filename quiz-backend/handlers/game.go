@@ -159,7 +159,7 @@ func DeleteGame(w http.ResponseWriter, r *http.Request) {
 
 	_, err = tx.Exec(
 		context.Background(),
-		`DELETE FROM categories WHERE round_id IN (SELECT id FROM round WHERE game_id = $1)`,
+		`UPDATE categories SET round_id = NULL WHERE round_id IN (SELECT id FROM round WHERE game_id = $1)`,
 		id,
 	)
 	if err != nil {
@@ -169,7 +169,7 @@ func DeleteGame(w http.ResponseWriter, r *http.Request) {
 
 	_, err = tx.Exec(
 		context.Background(),
-		`DELETE FROM round WHERE game_id = $1`,
+		`UPDATE round SET game_id = NULL WHERE game_id = $1`,
 		id,
 	)
 	if err != nil {
