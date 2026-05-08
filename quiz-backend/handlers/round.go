@@ -31,6 +31,16 @@ func RoundByIDHandler(w http.ResponseWriter, r *http.Request) {
 func CreateRound(w http.ResponseWriter, r *http.Request) {
 	var round models.Round
 
+	if err := json.NewDecoder(r.Body).Decode(&round); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if round.GameId == nil || *round.GameId <= 0 {
+		http.Error(w, "Invalid game_id", http.StatusBadRequest)
+		return
+	}
+
 	err := db.DB.QueryRow(
 		context.Background(),
 		`
