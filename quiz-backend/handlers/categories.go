@@ -26,7 +26,7 @@ func GetCategories(w http.ResponseWriter, r *http.Request) {
 	rows, err := db.DB.Query(
 		context.Background(),
 		`
-		SELECT id, name
+		SELECT id, name, description
 		FROM categories
 		ORDER BY name ASC
 	`,
@@ -47,6 +47,7 @@ func GetCategories(w http.ResponseWriter, r *http.Request) {
 		err := rows.Scan(
 			&category.ID,
 			&category.Name,
+			&category.Description,
 		)
 
 		if err != nil {
@@ -74,11 +75,12 @@ func CreateCategory(w http.ResponseWriter, r *http.Request) {
 	err = db.DB.QueryRow(
 		context.Background(),
 		`
-		INSERT INTO categories (name)
-		VALUES ($1)
+		INSERT INTO categories (name, description)
+		VALUES ($1, $2)
 		RETURNING id
 		`,
 		category.Name,
+		category.Description,
 	).Scan(&category.ID)
 
 	if err != nil {
