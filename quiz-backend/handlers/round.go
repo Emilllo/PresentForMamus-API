@@ -34,9 +34,10 @@ func CreateRound(w http.ResponseWriter, r *http.Request) {
 	err := db.DB.QueryRow(
 		context.Background(),
 		`
-		INSERT INTO rounds DEFAULT VALUES
+		INSERT INTO rounds(game_id) VALUES ($1)
 		RETURNING id
 		`,
+		round.GameId,
 	).Scan(&round.ID)
 
 	if err != nil {
