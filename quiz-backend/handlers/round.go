@@ -29,26 +29,36 @@ func RoundByIDHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func CreateRound(w http.ResponseWriter, r *http.Request) {
-	var round models.Round
+    var round models.Round
 
-	err := db.DB.QueryRow(
-		context.Background(),
-		`
-		INSERT INTO rounds(game_id) VALUES ($1)
-		RETURNING id
-		`,
-		round.GameId,
-	).Scan(&round.ID)
+    if err := json.NewDecoder(r.Body).Decode(&round); err != nil {
+        http.Error(w, err.Error(), http.StatusBadRequest)
+        return
+    }
 
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+    if round.GameId == nil || *round.GameId <= 0 {
+        http.Error(w, "Invalid game_id", http.StatusBadRequest)
+        return
+    }
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
+    err := db.DB.QueryRow(
+        context.Background(),
+        `
+        INSERT INTO rounds(game_id) VALUES ($1)
+        RETURNING id
+        `,
+        round.GameId,
+    ).Scan(&round.ID)
 
-	json.NewEncoder(w).Encode(round)
+    if err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
+
+    w.Header().Set("Content-Type", "application/json")
+    w.WriteHeader(http.StatusCreated)
+
+    json.NewEncoder(w).Encode(round)
 }
 
 func DeleteRound(w http.ResponseWriter, r *http.Request) {
