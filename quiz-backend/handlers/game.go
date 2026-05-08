@@ -35,7 +35,13 @@ func GameByIDHandler(w http.ResponseWriter, r *http.Request) {
 func GetGames(w http.ResponseWriter, r *http.Request) {
 	rows, err := db.DB.Query(
 		context.Background(),
-		`SELECT id FROM game ORDER BY id ASC`,
+		`
+		SELECT g.id AS gameid, r.id AS roundid, cat.id AS categoryID, cat.name AS categoryName, cat.description AS catDescription
+		FROM game g
+		JOIN round r ON r.game_id = g.id
+		JOIN categories cat ON cat.round_id = r.id
+		ORDER BY g.id ASC, r.id ASC, cat.id ASC
+		`,
 	)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -43,11 +49,17 @@ func GetGames(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
-	games := []models.Game{}
+	games := []models.GameDetails{}
 	for rows.Next() {
-		var game models.Game
+		var game models.GameDetails
 
-		if err := rows.Scan(&game.ID); err != nil {
+		if err := rows.Scan(
+			&game.GameID,
+			&game.RoundID,
+			&game.CategoryID,
+			&game.CategoryName,
+			&game.CatDescription,
+		); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -65,25 +77,49 @@ func GetGame(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var game models.Game
-
-	err := db.DB.QueryRow(
+	rows, err := db.DB.Query(
 		context.Background(),
-		`SELECT id FROM game WHERE id = $1`,
+		`
+		SELECT g.id AS gameid, r.id AS roundid, cat.id AS categoryID, cat.name AS categoryName, cat.description AS catDescription
+		FROM game g
+		JOIN round r ON r.game_id = g.id
+		JOIN categories cat ON cat.round_id = r.id
+		WHERE g.id = $1
+		ORDER BY r.id ASC, cat.id ASC
+		`,
 		id,
-	).Scan(&game.ID)
+	)
 	if err != nil {
-		if err.Error() == "no rows in result set" {
-			http.Error(w, "Game not found", http.StatusNotFound)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	games := []models.GameDetails{}
+	for rows.Next() {
+		var game models.GameDetails
+
+		if err := rows.Scan(
+			&game.GameID,
+			&game.RoundID,
+			&game.CategoryID,
+			&game.CategoryName,
+			&game.CatDescription,
+		); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		games = append(games, game)
+	}
+
+	if len(games) == 0 {
+		http.Error(w, "Game not found", http.StatusNotFound)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(game)
+	json.NewEncoder(w).Encode(games)
 }
 
 func CreateGame(w http.ResponseWriter, r *http.Request) {
@@ -114,7 +150,34 @@ func DeleteGame(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	commandTag, err := db.DB.Exec(
+	tx, err := db.DB.Begin(context.Background())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer tx.Rollback(context.Background())
+
+	_, err = tx.Exec(
+		context.Background(),
+		`DELETE FROM categories WHERE round_id IN (SELECT id FROM round WHERE game_id = $1)`,
+		id,
+	)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	_, err = tx.Exec(
+		context.Background(),
+		`DELETE FROM round WHERE game_id = $1`,
+		id,
+	)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	commandTag, err := tx.Exec(
 		context.Background(),
 		`DELETE FROM game WHERE id = $1`,
 		id,
@@ -126,6 +189,11 @@ func DeleteGame(w http.ResponseWriter, r *http.Request) {
 
 	if commandTag.RowsAffected() == 0 {
 		http.Error(w, "Game not found", http.StatusNotFound)
+		return
+	}
+
+	if err := tx.Commit(context.Background()); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
