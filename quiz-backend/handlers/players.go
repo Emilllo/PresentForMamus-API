@@ -33,6 +33,8 @@ func CreatePlayer(w http.ResponseWriter, r *http.Request) {
 
 	).Scan(&player.ID, &player.CreatedAt)
 
+	player.Token = token
+
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
