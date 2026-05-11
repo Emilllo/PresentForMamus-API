@@ -20,6 +20,7 @@ func SetupRoutes() *http.ServeMux {
 	router.HandleFunc("/games/{id}", handlers.GameByIDHandler)
 	router.HandleFunc("/rounds", handlers.RoundHandler)
 	router.HandleFunc("/rounds/{id}", handlers.RoundByIDHandler)
+	router.HandleFunc("/rounds/{id}/categories", handlers.CategoriesByRoundHandler) // Получить Категорию конкретного раунда, конкретной игры. Входные данные round_id, game_id
 
 	return router
 }

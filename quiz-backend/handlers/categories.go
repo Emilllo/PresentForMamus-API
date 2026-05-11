@@ -48,8 +48,17 @@ func CategoryRoundHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func GetCategories(w http.ResponseWriter, r *http.Request) {
-	rows, err := db.DB.Query(
+func CategoriesByRoundHandler(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+		case http.MethodGet:
+			GetCategoriesByRound(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func GetCategories(w http.ResponseWriter, r *http.Request) { //назвать метод, в скобках пишется ответ на запрос и читается метод 
+	rows, err := db.DB.Query(								 // выполняется запрос к БД
 		context.Background(),
 		`
 		SELECT id, name, description, round_id
@@ -59,21 +68,21 @@ func GetCategories(w http.ResponseWriter, r *http.Request) {
 	)
 
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError) // если в запросе ошибка, то тогда записывается ошибка со статусом 500
 		return
 	}
 
-	defer rows.Close()
+	defer rows.Close() // закрывает соединение с БД после выполнения запроса, чтобы не было утечки ресурсов
 
-	categories := []models.Categories{}
+	categories := []models.Categories{} // создаётся массив из структуры, чтобы выдать ответ 
 
 	for rows.Next() {
-		var category models.Categories
+		var category models.Categories // для каждой строки, которая возвращается из БД, мы создаем переменную типа Category и заполняем ее данными из строки
 
 		err := rows.Scan(
 			&category.ID,
 			&category.Name,
-			&category.Description,
+			&category.Description, 		// сканируем 
 			&category.RoundID,
 		)
 
@@ -274,4 +283,64 @@ func ClearCategoryRound(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func GetCategoriesByRound(w http.ResponseWriter, r *http.Request) {
+	var payload struct {
+		RoundID *int `json:"round_id"`
+		GameID  *int `json:"game_id"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if payload.RoundID == nil || *payload.RoundID <= 0 {
+		http.Error(w, "Invalid round_id", http.StatusBadRequest)
+		return
+	}
+
+	if payload.GameID == nil || *payload.GameID <= 0 {
+		http.Error(w, "Invalid game_id", http.StatusBadRequest)
+		return
+	}
+
+	rows, err := db.DB.Query(
+		context.Background(),
+		`
+		SELECT cat.id, cat.name, cat.description, r.id, g.id
+		FROM categories cat
+		JOIN round r ON r.id = cat.round_id
+		JOIN game g ON g.id = r.game_id
+		WHERE r.id = $1
+		AND g.id = $2
+		`,
+		*payload.RoundID,
+		*payload.GameID,
+	)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	categories := []models.CategoriesByRound{}
+
+	for rows.Next() {
+		var cat models.CategoriesByRound
+		if err := rows.Scan(&cat.CategoryId, &cat.CategoryName, &cat.CategoryDescription, &cat.Round, &cat.Game); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		categories = append(categories, cat)
+	}
+
+	if err := rows.Err(); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(categories)
 }
