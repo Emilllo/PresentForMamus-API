@@ -286,23 +286,13 @@ func ClearCategoryRound(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetCategoriesByRound(w http.ResponseWriter, r *http.Request) {
-	var payload struct {
-		RoundID *int `json:"round_id"`
-		GameID  *int `json:"game_id"`
-	}
-
-	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+	roundID, ok := parseIDFromPath(w, r, "round_id")
+	if !ok {
 		return
 	}
 
-	if payload.RoundID == nil || *payload.RoundID <= 0 {
-		http.Error(w, "Invalid round_id", http.StatusBadRequest)
-		return
-	}
-
-	if payload.GameID == nil || *payload.GameID <= 0 {
-		http.Error(w, "Invalid game_id", http.StatusBadRequest)
+	gameID, ok := parseIDFromPath(w, r, "game_id")
+	if !ok {
 		return
 	}
 
@@ -316,8 +306,8 @@ func GetCategoriesByRound(w http.ResponseWriter, r *http.Request) {
 		WHERE r.id = $1
 		AND g.id = $2
 		`,
-		*payload.RoundID,
-		*payload.GameID,
+		roundID,
+		gameID,
 	)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
